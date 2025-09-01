@@ -1,16 +1,22 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"runtime"
 
 	"github.com/go-gl/gl/v4.6-compatibility/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
 	"github.com/go-gl/mathgl/mgl32"
+	"github.com/sqweek/dialog"
 )
 
 var (
 	color = mgl32.Vec3{1, 0, 0} // vermelho
+
+	lastFrameTime float64
+	deltaTime     float64
+	fps           float64
+	frames        int
 )
 
 const (
@@ -29,7 +35,8 @@ func init() {
 func main() {
 	// Inicializa a GLFW
 	if err := glfw.Init(); err != nil {
-		log.Fatalln("Falha ao inicializar o GLFW:", err)
+		dialog.Message("Falha ao inicializar o GLFW: %s", err).Title("Erro").Error()
+		return
 	}
 
 	// Garante que a GLFW seja encerrada no final da função.
@@ -46,11 +53,15 @@ func main() {
 	// Cria a janela
 	window, err := glfw.CreateWindow(width, height, title, nil, nil)
 	if err != nil {
-		log.Fatalln("Falha ao criar a janela:", err)
+		dialog.Message("Falha ao criar a janela: %s", err).Title("Erro").Error()
+		return
 	}
 
 	// Define a janela atual
 	window.MakeContextCurrent()
+
+	// Desabilita o V-Sync fazendo o fps nao ser fixo aos hz do monitor
+	glfw.SwapInterval(0)
 
 	// Registra a função de callback para o redimensionamento
 	window.SetSizeCallback(resizeCallback)
@@ -60,14 +71,21 @@ func main() {
 
 	// Inicializa o OpenGL
 	if err := gl.Init(); err != nil {
-		log.Fatalln("Falha ao iniciar o OpenGL:", err)
+		dialog.Message("Falha ao iniciar o OpenGL: %s", err).Title("Erro").Error()
+		return
 	}
 
 	// Exibe a versão do OpenGL que está sendo usada.
-	log.Printf("Versão do OpenGL: %s", gl.GoStr(gl.GetString(gl.VERSION)))
+	dialog.Message("Versão do OpenGL: %s", gl.GoStr(gl.GetString(gl.VERSION))).Title("Informação").Info()
+
+	// Inicializa o tempo do último frame.
+	lastFrameTime = glfw.GetTime()
 
 	// Loop principal da janela enquanto a janlea ta aberta
 	for !window.ShouldClose() {
+		// Calcula o FPS
+		getFramePerSeconds()
+
 		// Limpa a tela com uma cor de fundo preto
 		gl.ClearColor(0, 0, 0, 1)
 		gl.Clear(gl.COLOR_BUFFER_BIT)
@@ -83,7 +101,7 @@ func main() {
 		window.SwapBuffers()
 
 		// Processa todos os eventos somente quando disparados
-		glfw.WaitEvents()
+		glfw.PollEvents()
 	}
 }
 
@@ -115,5 +133,26 @@ func keyboardCallback(w *glfw.Window, key glfw.Key, scancode int, action glfw.Ac
 		} else {
 			color = red
 		}
+	}
+}
+
+func getFramePerSeconds() {
+	// Obtém o tempo do frame atual.
+	currentTime := glfw.GetTime()
+
+	// Calcula o Delta Time (o tempo que o frame anterior levou para renderizar)
+	deltaTime = currentTime - lastFrameTime
+
+	// Atualiza o tempo do último frame.
+	lastFrameTime = currentTime
+
+	// Calcula o FPS
+	frames++
+	if deltaTime > 0.0 {
+		// A cada segundo, atualiza o FPS.
+		fps = float64(frames) / deltaTime
+		// Loga o FPS a cada segundo, ou exibe na janela.
+		fmt.Printf("FPS: %.2f\n", fps)
+		frames = 0
 	}
 }
