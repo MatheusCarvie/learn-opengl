@@ -78,7 +78,7 @@ func main() {
 	}
 
 	// Exibe a versão do OpenGL que está sendo usada.
-	dialog.Message("Versão do OpenGL: %s", gl.GoStr(gl.GetString(gl.VERSION))).Title("Informação").Info()
+	// dialog.Message("Versão do OpenGL: %s", gl.GoStr(gl.GetString(gl.VERSION))).Title("Informação").Info()
 
 	// Inicializa o tempo do último frame.
 	lastFrameTime = glfw.GetTime()
@@ -91,7 +91,7 @@ func main() {
 		// Limpa a tela com uma cor de fundo preto
 		gl.ClearColor(0, 0, 0, 1)
 		gl.Clear(gl.COLOR_BUFFER_BIT)
-		gl.PointSize(10)
+		gl.PointSize(40)
 
 		moveCube(window)
 		gl.LoadIdentity() // reseta posição e rotação
@@ -165,16 +165,27 @@ func getFramePerSeconds() {
 func moveCube(window *glfw.Window) {
 	// dentro do loop principal, antes de desenhar
 	var cubeSpeed float32 = 1.0 // unidades por segundo
+
+	// Calcula direção pura (sem aplicar velocidade ainda)
+	direction := mgl32.Vec2{0, 0}
+
 	if window.GetKey(glfw.KeyW) == glfw.Press {
-		cubPosition = cubPosition.Add(mgl32.Vec2{0, cubeSpeed * float32(deltaTime)})
+		direction = direction.Add(mgl32.Vec2{0, 1})
 	}
 	if window.GetKey(glfw.KeyS) == glfw.Press {
-		cubPosition = cubPosition.Sub(mgl32.Vec2{0, cubeSpeed * float32(deltaTime)})
-	}
-	if window.GetKey(glfw.KeyA) == glfw.Press {
-		cubPosition = cubPosition.Sub(mgl32.Vec2{cubeSpeed * float32(deltaTime), 0})
+		direction = direction.Sub(mgl32.Vec2{0, 1})
 	}
 	if window.GetKey(glfw.KeyD) == glfw.Press {
-		cubPosition = cubPosition.Add(mgl32.Vec2{cubeSpeed * float32(deltaTime), 0})
+		direction = direction.Add(mgl32.Vec2{1, 0})
 	}
+	if window.GetKey(glfw.KeyA) == glfw.Press {
+		direction = direction.Sub(mgl32.Vec2{1, 0})
+	}
+
+	// Se tiver input, normaliza
+	if direction.Len() > 0 {
+		direction = direction.Normalize()
+	}
+
+	cubPosition = cubPosition.Add(direction.Mul(float32(deltaTime) * cubeSpeed))
 }
