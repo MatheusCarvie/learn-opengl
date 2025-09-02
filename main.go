@@ -10,9 +10,11 @@ import (
 	"github.com/sqweek/dialog"
 )
 
-var (
-	color = mgl32.Vec3{1, 0, 0} // vermelho
+var color = mgl32.Vec3{1, 0, 0} // vermelho
+var cubPosition = mgl32.Vec2{0, 0}
+var cubeSpeed float32 = 150
 
+var (
 	lastFrameTime float64
 	deltaTime     float64
 	fps           float64
@@ -89,13 +91,16 @@ func main() {
 		// Limpa a tela com uma cor de fundo preto
 		gl.ClearColor(0, 0, 0, 1)
 		gl.Clear(gl.COLOR_BUFFER_BIT)
+		gl.PointSize(10)
+
+		moveCube(window)
+		gl.LoadIdentity() // reseta posição e rotação
+		gl.Translatef(cubPosition.X(), cubPosition.Y(), 0)
 
 		gl.Color3f(color.X(), color.Y(), color.Z()) // Define a cor vermelha
-		gl.Begin(gl.TRIANGLES)                      // Inicia um triângulo
-		gl.Vertex2f(-0.5, -0.5)                     // canto inferior esquerdo
-		gl.Vertex2f(0.5, -0.5)                      // canto inferior direito
-		gl.Vertex2f(0, 0.5)                         // meio em cima
-		gl.End()                                    // Termina o desenho
+		gl.Begin(gl.POINTS)
+		gl.Vertex2f(0.0, 0.0)
+		gl.End() // Termina o desenho
 
 		// Troca os buffers de vídeo. É essencial para a renderização de gráficos.
 		window.SwapBuffers()
@@ -154,5 +159,22 @@ func getFramePerSeconds() {
 		// Loga o FPS a cada segundo, ou exibe na janela.
 		fmt.Printf("FPS: %.2f\n", fps)
 		frames = 0
+	}
+}
+
+func moveCube(window *glfw.Window) {
+	// dentro do loop principal, antes de desenhar
+	var cubeSpeed float32 = 1.0 // unidades por segundo
+	if window.GetKey(glfw.KeyW) == glfw.Press {
+		cubPosition = cubPosition.Add(mgl32.Vec2{0, cubeSpeed * float32(deltaTime)})
+	}
+	if window.GetKey(glfw.KeyS) == glfw.Press {
+		cubPosition = cubPosition.Sub(mgl32.Vec2{0, cubeSpeed * float32(deltaTime)})
+	}
+	if window.GetKey(glfw.KeyA) == glfw.Press {
+		cubPosition = cubPosition.Sub(mgl32.Vec2{cubeSpeed * float32(deltaTime), 0})
+	}
+	if window.GetKey(glfw.KeyD) == glfw.Press {
+		cubPosition = cubPosition.Add(mgl32.Vec2{cubeSpeed * float32(deltaTime), 0})
 	}
 }
