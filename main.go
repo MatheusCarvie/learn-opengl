@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"math"
+	"math/rand"
 	"runtime"
 
 	"github.com/go-gl/gl/v4.6-compatibility/gl"
@@ -10,9 +12,10 @@ import (
 	"github.com/sqweek/dialog"
 )
 
-var color = mgl32.Vec3{1, 0, 0} // vermelho
-var cubPosition = mgl32.Vec2{0, 0}
-var cubeSpeed float32 = 150
+var snackPosition = mgl32.Vec2{0, 0}
+var enemyPosition = mgl32.Vec2{0, 0}
+var tailsPosition = []mgl32.Vec2{}
+var points = 0
 
 var (
 	lastFrameTime float64
@@ -63,7 +66,7 @@ func main() {
 	window.MakeContextCurrent()
 
 	// Desabilita o V-Sync fazendo o fps nao ser fixo aos hz do monitor
-	glfw.SwapInterval(0)
+	glfw.SwapInterval(1)
 
 	// Registra a função de callback para o redimensionamento
 	window.SetSizeCallback(resizeCallback)
@@ -83,24 +86,32 @@ func main() {
 	// Inicializa o tempo do último frame.
 	lastFrameTime = glfw.GetTime()
 
+	// Limpa a tela com uma cor de fundo preto
+	gl.ClearColor(0, 0, 0, 1)
+	gl.PointSize(40)
+
+	spawnEnemy()
+
 	// Loop principal da janela enquanto a janlea ta aberta
 	for !window.ShouldClose() {
 		// Calcula o FPS
 		getFramePerSeconds()
 
-		// Limpa a tela com uma cor de fundo preto
-		gl.ClearColor(0, 0, 0, 1)
-		gl.Clear(gl.COLOR_BUFFER_BIT)
-		gl.PointSize(40)
+		gl.Clear(gl.COLOR_BUFFER_BIT) // Limpa os buffer
+		gl.LoadIdentity()             // reseta posição e rotação
 
-		moveCube(window)
-		gl.LoadIdentity() // reseta posição e rotação
-		gl.Translatef(cubPosition.X(), cubPosition.Y(), 0)
+		moveSnack(window) // Movimenta o player
 
-		gl.Color3f(color.X(), color.Y(), color.Z()) // Define a cor vermelha
-		gl.Begin(gl.POINTS)
-		gl.Vertex2f(0.0, 0.0)
-		gl.End() // Termina o desenho
+		renderEnemy() // Renderiza o inimigo
+		renderSnack() // Renderiza o player
+		renderTail()  // Renderiza a cauda
+
+		// Checka colisao entre o player e o inimigo
+		if checkCollision(snackPosition, enemyPosition, 0.15) {
+			spawnEnemy()
+			points++
+			fmt.Println("Pontos:", points)
+		}
 
 		// Troca os buffers de vídeo. É essencial para a renderização de gráficos.
 		window.SwapBuffers()
@@ -124,21 +135,6 @@ func keyboardCallback(w *glfw.Window, key glfw.Key, scancode int, action glfw.Ac
 	if key == glfw.KeyEscape && action == glfw.Press {
 		w.SetShouldClose(true)
 	}
-
-	if key == glfw.KeyR && action == glfw.Press {
-		// Define as cores para comparação.
-		red := mgl32.Vec3{1, 0, 0}
-		green := mgl32.Vec3{0, 1, 0}
-		blu := mgl32.Vec3{0, 0, 1}
-
-		if color.ApproxEqual(red) {
-			color = blu
-		} else if color.ApproxEqual(blu) {
-			color = green
-		} else {
-			color = red
-		}
-	}
 }
 
 func getFramePerSeconds() {
@@ -157,14 +153,14 @@ func getFramePerSeconds() {
 		// A cada segundo, atualiza o FPS.
 		fps = float64(frames) / deltaTime
 		// Loga o FPS a cada segundo, ou exibe na janela.
-		fmt.Printf("FPS: %.2f\n", fps)
+		// fmt.Printf("FPS: %.2f\n", fps)
 		frames = 0
 	}
 }
 
-func moveCube(window *glfw.Window) {
+func moveSnack(window *glfw.Window) {
 	// dentro do loop principal, antes de desenhar
-	var cubeSpeed float32 = 1.0 // unidades por segundo
+	var snackSpeed float32 = 1.0 // unidades por segundo
 
 	// Calcula direção pura (sem aplicar velocidade ainda)
 	direction := mgl32.Vec2{0, 0}
@@ -187,5 +183,71 @@ func moveCube(window *glfw.Window) {
 		direction = direction.Normalize()
 	}
 
-	cubPosition = cubPosition.Add(direction.Mul(float32(deltaTime) * cubeSpeed))
+	// Adiciona a cauda com a posição do player no index 0
+	tailsPosition = append([]mgl32.Vec2{snackPosition}, tailsPosition...)
+	if points > 0 && len(tailsPosition) > points {
+		// Remove caudas que passar dos pontos
+		tailsPosition = tailsPosition[:points]
+	}
+
+	// Salva a nova posição
+	newPosition := snackPosition.Add(direction.Mul(float32(deltaTime) * snackSpeed))
+
+	// Limita a posição para nao sair da tela
+	snackPosition = mgl32.Vec2{
+		clamp(newPosition.X(), -1, 1),
+		clamp(newPosition.Y(), -1, 1),
+	}
+}
+
+func renderSnack() {
+	gl.Color3f(0, 1, 0) // Define a cor verde
+	gl.Begin(gl.POINTS)
+	gl.Vertex2f(snackPosition.X(), snackPosition.Y())
+	gl.End() // Termina o desenho
+}
+
+func renderTail() {
+	for _, pos := range tailsPosition {
+		gl.Color3f(0, 1, 0)
+		gl.Begin(gl.POINTS)
+		gl.Vertex2f(pos.X(), pos.Y())
+		gl.End()
+	}
+}
+
+func renderEnemy() {
+	gl.Color3f(1, 0, 0) // Define a cor vermelha
+	gl.Begin(gl.POINTS)
+	gl.Vertex2f(enemyPosition.X(), enemyPosition.Y())
+	gl.End() // Termina o desenho
+}
+
+func spawnEnemy() {
+	randomX := randomFloat32(-1, 1)
+	randomY := randomFloat32(-1, 1)
+	enemyPosition = mgl32.Vec2{randomX, randomY}
+}
+
+// Função para gerar um número aleatório entre min e max
+func randomFloat32(min, max float32) float32 {
+	return min + rand.Float32()*(max-min)
+}
+
+// Colisão ocorre quando a distância entre os centros é menor que a soma dos raios
+func checkCollision(pos1 mgl32.Vec2, pos2 mgl32.Vec2, radius float32) bool {
+	dx := float64(pos1.X() - pos2.X())
+	dy := float64(pos1.Y() - pos2.Y())
+	distance := math.Sqrt(dx*dx + dy*dy)
+	return distance < float64(radius)
+}
+
+func clamp(value, min, max float32) float32 {
+	if value < min {
+		return min
+	}
+	if value > max {
+		return max
+	}
+	return value
 }
