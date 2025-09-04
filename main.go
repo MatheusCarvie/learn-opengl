@@ -153,7 +153,7 @@ func getFramePerSeconds() {
 		// A cada segundo, atualiza o FPS.
 		fps = float64(frames) / deltaTime
 		// Loga o FPS a cada segundo, ou exibe na janela.
-		// fmt.Printf("FPS: %.2f\n", fps)
+		fmt.Printf("FPS: %.2f\n", fps)
 		frames = 0
 	}
 }
